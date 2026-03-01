@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ms Van's Food Game</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background: #fff9e6; height: 100vh; overflow: hidden; 
+            padding: 10px; position: relative;
+        }
+
+        h1 { font-size: 1.8rem; margin-bottom: 5px; color: #ff5722; text-shadow: 1px 1px 2px #ccc; }
+
+        .stats-bar { 
+            display: flex; gap: 20px; align-items: center; margin-bottom: 10px;
+            font-weight: bold; font-size: 1.1rem; 
+        }
+
+        #music-btn {
+            padding: 5px 12px; cursor: pointer; border-radius: 20px;
+            background: #ff9800; color: white; border: none; font-weight: bold;
+        }
+
+        #items-container { 
+            display: flex; flex-wrap: wrap; justify-content: center; 
+            gap: 8px; width: 100%; max-width: 850px; 
+            min-height: 90px; padding: 12px; margin-bottom: 15px;
+            border: 3px dashed #ff9800; border-radius: 15px; background: #fff;
+        }
+
+        .item { 
+            padding: 8px 15px; border: 2px solid #333; border-radius: 20px; 
+            background: #fff; cursor: grab; user-select: none;
+            font-size: 0.95rem; font-weight: bold; text-transform: capitalize;
+            box-shadow: 3px 3px 0px #333;
+        }
+
+        .board { 
+            display: grid; grid-template-columns: repeat(4, 1fr); 
+            gap: 12px; width: 100%; max-width: 1000px; 
+            flex-grow: 1; max-height: 55vh;
+        }
+
+        .column { border: 3px solid #333; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 4px 4px 0px #333; }
+        .header { text-align: center; padding: 10px; font-weight: bold; color: #fff; text-transform: uppercase; border-bottom: 3px solid #333; }
+        .drop-zone { flex-grow: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+        
+        .grains { background: #FFD54F; } .grains .header { background: #F57F17; }
+        .protein { background: #FF8A80; } .protein .header { background: #D32F2F; }
+        .dairy { background: #81D4FA; } .dairy .header { background: #0288D1; }
+        .fruit-veg { background: #A5D6A7; } .fruit-veg .header { background: #388E3C; }
+        
+        .correct { background: #eee !important; border: 2px dashed #999; text-decoration: line-through; opacity: 0.6; box-shadow: none; }
+
+        /* Chữ ký góc phải */
+        .footer-credit {
+            position: absolute; bottom: 10px; right: 15px;
+            font-size: 0.9rem; font-style: italic; color: #777; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🍎 Food Groups Challenge 🌽</h1>
+    
+    <div class="stats-bar">
+        <button id="music-btn" onclick="toggleMusic()">🔊 Start Game with Music</button>
+        <span>⏱ Time: <span id="timer">0</span>s</span>
+        <span>🏆 Score: <span id="score">0</span>/16</span>
+    </div>
+
+    <!-- Nhạc nền vui nhộn -->
+    <audio id="bgMusic" loop>
+        <source src="https://cdn.pixabay.com" type="audio/mpeg">
+    </audio>
+    <!-- Âm thanh khi thả đúng -->
+    <audio id="correctSound">
+        <source src="https://cdn.pixabay.com" type="audio/mpeg">
+    </audio>
+
+    <div id="items-container"></div>
+
+    <div class="board">
+        <div class="column grains"><div class="header">Grains</div><div class="drop-zone" data-category="grains"></div></div>
+        <div class="column protein"><div class="header">Protein</div><div class="drop-zone" data-category="protein"></div></div>
+        <div class="column dairy"><div class="header">Dairy</div><div class="drop-zone" data-category="dairy"></div></div>
+        <div class="column fruit-veg"><div class="header">Fruit & Veg</div><div class="drop-zone" data-category="fruit-veg"></div></div>
+    </div>
+
+    <div class="footer-credit">Ms Vân Class</div>
+
+    <script>
+        const foodData = [
+            { name: "bread", cat: "grains" }, { name: "noodles", cat: "grains" }, { name: "corn", cat: "grains" }, { name: "rice", cat: "grains" },
+            { name: "chicken", cat: "protein" }, { name: "egg", cat: "protein" }, { name: "fish", cat: "protein" }, { name: "meat", cat: "protein" },
+            { name: "butter", cat: "dairy" }, { name: "yogurt", cat: "dairy" }, { name: "cheese", cat: "dairy" }, { name: "milk", cat: "dairy" },
+            { name: "apple", cat: "fruit-veg" }, { name: "grapes", cat: "fruit-veg" }, { name: "green beans", cat: "fruit-veg" }, { name: "carrot", cat: "fruit-veg" }
+        ];
+
+        let score = 0, seconds = 0, timerInterval, musicStarted = false;
+        const music = document.getElementById('bgMusic');
+        const correctSound = document.getElementById('correctSound');
+
+        function toggleMusic() {
+            if (!musicStarted) {
+                music.play();
+                startTimer();
+                document.getElementById('music-btn').innerText = "🎵 Music On";
+                musicStarted = true;
+            }
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                seconds++;
+                document.getElementById('timer').innerText = seconds;
+            }, 1000);
+        }
+
+        function initGame() {
+            const container = document.getElementById('items-container');
+            const shuffled = [...foodData].sort(() => Math.random() - 0.5);
+            shuffled.forEach(food => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerText = food.name;
+                div.draggable = true;
+                div.id = 'item-' + food.name.replace(/\s+/g, '-');
+                div.dataset.category = food.cat;
+                div.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', e.target.id);
+                });
+                container.appendChild(div);
+            });
+        }
+
+        document.querySelectorAll('.drop-zone').forEach(zone => {
+            zone.addEventListener('dragover', e => e.preventDefault());
+            zone.addEventListener('drop', e => {
+                e.preventDefault();
+                const id = e.dataTransfer.getData('text/plain');
+                const item = document.getElementById(id);
+                if (item.dataset.category === zone.dataset.category) {
+                    zone.appendChild(item);
+                    item.classList.add('correct');
+                    item.draggable = false;
+                    correctSound.play(); // Phát tiếng Ting
+                    score++;
+                    document.getElementById('score').innerText = score;
+                    if (score === 16) {
+                        clearInterval(timerInterval);
+                        setTimeout(() => alert(`Well done! You finished in ${seconds}s. Ms Vân is proud of you!`), 300);
+                    }
+                } else {
+                    alert("Try again! 💡");
+                }
+            });
+        });
+
+        initGame();
+    </script>
+</body>
+</html>
